@@ -3,7 +3,7 @@ import pytesseract
 import google.generativeai as genai
 
 # ========== Step 1: Configure Gemini ==========
-genai.configure(api_key="AIzaSyAYxNQFfB0JRW3xiShOhFraagAHZheGmWU")  # 🔁 Replace with your actual Gemini API key
+genai.configure(api_key="")  # 🔁 Replace with your actual Gemini API key
 
 model = genai.GenerativeModel("gemini-2.0-flash")
 
