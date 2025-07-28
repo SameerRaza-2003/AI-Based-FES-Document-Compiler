@@ -3,15 +3,26 @@
 <head>
   <meta charset="UTF-8">
   <title>FES Document Compiler</title>
+
+  <!-- External CSS -->
+  <link href="{{ url_for('static', filename='css/style.css') }}" rel="stylesheet">
+ <!-- AOS Animation Library -->
+<link href="https://cdn.jsdelivr.net/npm/aos@2.3.4/dist/aos.css" rel="stylesheet">
+
+  <!-- Bootstrap CSS -->
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
-  <script src="{{ url_for('static', filename='js/sortable.min.js') }}"></script>
-  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+  <link href="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.5.13/cropper.min.css" rel="stylesheet">
 </head>
 <body class="bg-light">
   <div class="container mt-5">
-    <h2>📄 FES Document Compiler</h2>
+    <h2>
+      <div class="d-flex align-items-center mb-4">
+        <img src="{{ url_for('static', filename='images/fes-logo.png') }}" alt="FES Logo" height="50" class="me-3" style="border-radius: 10px;">
+        <h2 class="m-0">📝 AI Powered FES Document Compiler</h2>
+      </div>
+      
+    </h2>
 
-    <!-- Upload Form -->
     <form id="uploadForm" enctype="multipart/form-data">
       <input type="file" name="images[]" multiple class="form-control mb-3">
       <button type="submit" id="uploadBtn" class="btn btn-primary">
@@ -20,10 +31,12 @@
       </button>
     </form>
 
-    <!-- Image Preview -->
-    <div id="preview" class="d-flex flex-row flex-wrap gap-3 mt-4"></div>
+    <!-- Updated Preview Section -->
+    <div id="preview" class="d-flex flex-row flex-wrap gap-3 mt-4">
+      <!-- Added wrapper div -->
+      <div id="previewWrapper" class="d-flex flex-wrap gap-3 w-100"></div>
+    </div>
 
-    <!-- Action Buttons -->
     <button id="compileBtn" class="btn btn-success mt-4 d-none">
       <span id="compileSpinner" class="spinner-border spinner-border-sm d-none me-2"></span>
       ✅ Compile PDF
@@ -31,127 +44,54 @@
     <a id="downloadLink" href="#" target="_blank" class="btn btn-outline-primary d-none mt-2">⬇️ Download PDF</a>
   </div>
 
-  <!-- Modal for Enlarged Image View -->
+  <!-- Crop Modal -->
   <div class="modal fade" id="imageModal" tabindex="-1" aria-hidden="true">
-    <div class="modal-dialog modal-dialog-centered modal-xl">
+    <div class="modal-dialog modal-fullscreen">
       <div class="modal-content bg-dark">
-        <div class="modal-body text-center">
-          <img id="modalImage" class="img-fluid" style="max-height: 80vh;" src="" alt="Preview">
+        <div class="modal-header border-0">
+          <button type="button" class="btn-close btn-close-white ms-auto" data-bs-dismiss="modal"></button>
+        </div>
+        <div class="modal-body d-flex flex-column align-items-center justify-content-center text-white p-0">
+          <div id="cropperContainer">
+            <img id="modalImage" src="" alt="To Crop">
+          </div>
+          <button id="cropSaveBtn" class="btn btn-light mt-3 mb-4">Crop & Save</button>
         </div>
       </div>
     </div>
   </div>
 
-  <script>
-    const form = document.getElementById("uploadForm");
-    const uploadBtn = document.getElementById("uploadBtn");
-    const uploadSpinner = document.getElementById("uploadSpinner");
-    const preview = document.getElementById("preview");
-    const compileBtn = document.getElementById("compileBtn");
-    const compileSpinner = document.getElementById("compileSpinner");
-    const downloadLink = document.getElementById("downloadLink");
+  <!-- Image Preview Modal -->
+  <div id="imagePreviewModal">
+    <span id="closeImagePreview">&times;</span>
+    <img id="enlargedImage" src="">
+  </div>
+<!-- Features Section -->
+<div class="container mt-5 pt-5" data-aos="fade-up">
+  <div class="card shadow-sm border-0">
+    <div class="card-body">
+      <h4 class="card-title text-primary mb-4">✨ Features of FES Document Compiler</h4>
+      <ul class="list-group list-group-flush staggered-fade">
+        <li class="list-group-item">📤 <strong>Multi-Document Upload:</strong> Upload multiple documents at once.</li>
+        <li class="list-group-item">✂️ <strong>Interactive Editing:</strong> Crop, rotate and move documents before compiling.</li>
+        <li class="list-group-item">🔍 <strong>Live Preview:</strong> Instantly preview how your compiled document will look.</li>
+        <li class="list-group-item">🧠 <strong>AI-Powered Detection And Sorting </strong> Automatically detects, labels document types and sorts them into right order </li>
+        <li class="list-group-item">📄 <strong>One-Click PDF:</strong> Combine documents into a polished, downloadable PDF.</li>
+        <li class="list-group-item">🎯 <strong>Responsive Design:</strong> Fast and smooth experience on desktop, tablet, and mobile.</li>
+      </ul>
+    </div>
+  </div>
+</div>
 
-    let compiledUrl = "";
+  <!-- Scripts -->
+  <script src="{{ url_for('static', filename='js/sortable.min.js') }}"></script>
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.5.13/cropper.min.js"></script>
+  <script src="{{ url_for('static', filename='js/main.js') }}"></script>
+  <script src="https://cdn.jsdelivr.net/npm/aos@2.3.4/dist/aos.js"></script>
+<script>
+  AOS.init();
+</script>
 
-    // Toast utility
-    function showToast(message) {
-      const toast = document.createElement("div");
-      toast.className = "toast align-items-center text-white bg-primary border-0 position-fixed bottom-0 end-0 m-3 show";
-      toast.role = "alert";
-      toast.innerHTML = `
-        <div class="d-flex">
-          <div class="toast-body">${message}</div>
-          <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"></button>
-        </div>`;
-      document.body.appendChild(toast);
-      setTimeout(() => {
-        toast.classList.remove("show");
-        toast.remove();
-      }, 3000);
-    }
-
-    // Image click to open modal
-    document.addEventListener("click", (e) => {
-      if (e.target.tagName === "IMG" && e.target.closest("#preview")) {
-        const modalImg = document.getElementById("modalImage");
-        modalImg.src = e.target.src;
-        new bootstrap.Modal(document.getElementById("imageModal")).show();
-      }
-    });
-
-    // Handle upload form submission
-    form.onsubmit = async (e) => {
-      e.preventDefault();
-      preview.innerHTML = "";
-      downloadLink.classList.add("d-none");
-      compileBtn.classList.add("d-none");
-      compiledUrl = "";
-
-      uploadSpinner.classList.remove("d-none");
-      uploadBtn.disabled = true;
-
-      const formData = new FormData(form);
-      const res = await fetch("/upload", { method: "POST", body: formData });
-      const data = await res.json();
-
-      data.forEach(item => {
-        const div = document.createElement("div");
-        div.className = "border p-2 text-center bg-white";
-        div.style.width = "200px";
-        div.dataset.id = item.filename;
-        div.innerHTML = `
-          <img src="/static/uploads/${item.filename}" class="img-fluid mb-1"/>
-          <small>${item.doc_type}</small>
-        `;
-        preview.appendChild(div);
-      });
-
-      Sortable.create(preview, {
-        animation: 150,
-        onEnd: () => {
-          compiledUrl = ""; // invalidate old PDF
-          showToast("Order changed. Please click Compile PDF again.");
-          downloadLink.classList.add("d-none");
-        }
-      });
-
-      compileBtn.classList.remove("d-none");
-      uploadSpinner.classList.add("d-none");
-      uploadBtn.disabled = false;
-    };
-
-    // Handle compile
-    compileBtn.onclick = async () => {
-      compileSpinner.classList.remove("d-none");
-      compileBtn.disabled = true;
-      downloadLink.classList.add("d-none");
-
-      const ordered = [...preview.children].map(div => div.dataset.id);
-      const res = await fetch("/generate_pdf", {
-        method: "POST",
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ ordered })
-      });
-
-      const data = await res.json();
-      compiledUrl = data.url;
-
-      downloadLink.href = compiledUrl;
-      downloadLink.classList.remove("d-none");
-
-      compileSpinner.classList.add("d-none");
-      compileBtn.disabled = false;
-    };
-
-    // Handle download
-    downloadLink.onclick = (e) => {
-      if (!compiledUrl) {
-        e.preventDefault();
-        showToast("Please compile the PDF first.");
-        return;
-      }
-      window.open(compiledUrl, "_blank");
-    };
-  </script>
 </body>
 </html>
