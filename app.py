@@ -9,12 +9,13 @@ import google.generativeai as genai
 # Configure Gemini API
 genai.configure(api_key=os.getenv("GEMINI_API_KEY"))
 
+# Initialize Flask app
 app = Flask(__name__)
 UPLOAD_FOLDER = "static/uploads"
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 
-# Tesseract path
-pytesseract.pytesseract.tesseract_cmd = r'C:\Program Files\Tesseract-OCR\tesseract.exe'  # Adjust if needed
+# Tesseract path (adjust as needed)
+pytesseract.pytesseract.tesseract_cmd = r'C:\Program Files\Tesseract-OCR\tesseract.exe'
 
 # Classification priority
 DOCUMENT_PRIORITY = {
@@ -51,10 +52,10 @@ Text:
 {text}
     """.strip()
 
-    model = genai.GenerativeModel("gemini-2.0-flash")
+    model = genai.GenerativeModel("gemini-1.5-pro")
     response = model.generate_content(prompt)
     label = response.text.strip()
-    print("Gemini classified as:", label)  # Debug log
+    print("Gemini classified as:", label)
     return label
 
 
@@ -94,7 +95,7 @@ def upload():
             "doc_type": doc_type
         })
 
-    # Sort by custom priority
+    # Sort by priority
     result.sort(key=lambda x: DOCUMENT_PRIORITY.get(x["doc_type"], 999))
 
     return jsonify(result)
@@ -103,21 +104,42 @@ def upload():
 @app.route('/generate_pdf', methods=["POST"])
 def generate_pdf():
     data = request.json
+    ordered = data["ordered"]
+    rotations = data.get("rotations", {})  # Optional rotation angles
+
     pdf = FPDF()
-    for fname in data["ordered"]:
+
+    for fname in ordered:
         path = os.path.join(UPLOAD_FOLDER, fname)
+        img = Image.open(path)
+
+        # Apply rotation if needed
+        angle = int(rotations.get(fname, 0))
+        if angle:
+            img = img.rotate(-angle, expand=True)  # Counter-clockwise
+
+        # Save rotated version temporarily
+        temp_path = os.path.join(UPLOAD_FOLDER, f"temp_{fname}")
+        img.convert("RGB").save(temp_path)
+
         pdf.add_page()
-        pdf.image(path, x=10, y=10, w=190)
+        pdf.image(temp_path, x=10, y=10, w=190)
+
+        # Delete temp image
+        os.remove(temp_path)
+
     output_path = os.path.join(UPLOAD_FOLDER, "compiled.pdf")
     pdf.output(output_path)
+
     return jsonify({"url": "/static/uploads/compiled.pdf"})
+
 
 @app.route('/delete_image/<filename>', methods=["POST"])
 def delete_image(filename):
     try:
-        os.remove(os.path.join('static/uploads', filename))
+        os.remove(os.path.join(UPLOAD_FOLDER, filename))
     except Exception as e:
-        print(f"Error deleting: {e}")
+        print(f"Error deleting {filename}: {e}")
     return '', 204
 
 
@@ -125,11 +147,10 @@ def delete_image(filename):
 def crop_image():
     file = request.files["image"]
     filename = request.form["filename"]
-    save_path = os.path.join('static/uploads', filename)
+    save_path = os.path.join(UPLOAD_FOLDER, filename)
     image = Image.open(file).convert("RGB")
     image.save(save_path)
     return '', 204
-
 
 
 if __name__ == '__main__':
