@@ -5,6 +5,7 @@ from fpdf import FPDF
 import os
 import uuid
 import google.generativeai as genai
+import fitz  # PyMuPDF
 
 # Configure Gemini API
 genai.configure(api_key=os.getenv("GEMINI_API_KEY"))
@@ -52,7 +53,7 @@ Text:
 {text}
     """.strip()
 
-    model = genai.GenerativeModel("gemini-1.5-pro")
+    model = genai.GenerativeModel("gemini-2.0-flash")
     response = model.generate_content(prompt)
     label = response.text.strip()
     print("Gemini classified as:", label)
@@ -70,35 +71,83 @@ def upload():
     result = []
 
     for file in files:
-        img_id = str(uuid.uuid4())
-        path = os.path.join(UPLOAD_FOLDER, img_id + ".jpg")
-        image = Image.open(file).convert("RGB")
-        image.save(path)
+        if not file:
+            continue
 
-        # OCR preprocessing
-        gray = image.convert("L").resize((image.width * 2, image.height * 2))
-        binarized = gray.point(lambda x: 0 if x < 150 else 255, '1')
-        text = pytesseract.image_to_string(binarized, lang="eng")
+        ext = file.filename.rsplit('.', 1)[-1].lower()
+        is_pdf = ext == "pdf"
 
-        # Gemini classification
-        try:
-            doc_type = classify_with_gemini(text)
-            if doc_type == "":
-                raise ValueError("Empty classification")
-        except Exception as e:
-            print("Gemini failed:", e)
-            doc_type = "Unknown"
+        if is_pdf:
+            # Save PDF temporarily
+            pdf_id = str(uuid.uuid4())
+            pdf_path = os.path.join(UPLOAD_FOLDER, f"{pdf_id}.pdf")
+            file.save(pdf_path)
 
-        result.append({
-            "id": img_id,
-            "filename": img_id + ".jpg",
-            "doc_type": doc_type
-        })
+            try:
+                doc = fitz.open(pdf_path)
+                for i, page in enumerate(doc):
+                    pix = page.get_pixmap(dpi=200)
+                    img_id = f"{pdf_id}_p{i}"
+                    img_path = os.path.join(UPLOAD_FOLDER, f"{img_id}.jpg")
+                    pix.save(img_path)
+
+                    # OCR & Classification
+                    image = Image.open(img_path).convert("RGB")
+                    gray = image.convert("L").resize((image.width * 2, image.height * 2))
+                    binarized = gray.point(lambda x: 0 if x < 150 else 255, '1')
+                    text = pytesseract.image_to_string(binarized, lang="eng")
+
+                    try:
+                        doc_type = classify_with_gemini(text)
+                        if not doc_type:
+                            raise ValueError("Empty classification")
+                    except Exception as e:
+                        print("Gemini failed:", e)
+                        doc_type = "Unknown"
+
+                    result.append({
+                        "id": img_id,
+                        "filename": f"{img_id}.jpg",
+                        "doc_type": doc_type
+                    })
+                doc.close()
+            except Exception as e:
+                print("PDF conversion failed:", e)
+            finally:
+                # Delay removal to avoid WinError 32 (optional: use threading to delay)
+                try:
+                    os.remove(pdf_path)
+                except Exception as e:
+                    print(f"PDF remove error: {e}")
+        else:
+            # Handle image upload
+            img_id = str(uuid.uuid4())
+            path = os.path.join(UPLOAD_FOLDER, img_id + ".jpg")
+            image = Image.open(file).convert("RGB")
+            image.save(path)
+
+            gray = image.convert("L").resize((image.width * 2, image.height * 2))
+            binarized = gray.point(lambda x: 0 if x < 150 else 255, '1')
+            text = pytesseract.image_to_string(binarized, lang="eng")
+
+            try:
+                doc_type = classify_with_gemini(text)
+                if not doc_type:
+                    raise ValueError("Empty classification")
+            except Exception as e:
+                print("Gemini failed:", e)
+                doc_type = "Unknown"
+
+            result.append({
+                "id": img_id,
+                "filename": img_id + ".jpg",
+                "doc_type": doc_type
+            })
 
     # Sort by priority
     result.sort(key=lambda x: DOCUMENT_PRIORITY.get(x["doc_type"], 999))
-
     return jsonify(result)
+
 
 
 @app.route('/generate_pdf', methods=["POST"])
