@@ -7,15 +7,12 @@ import uuid
 import google.generativeai as genai
 import fitz  # PyMuPDF
 
-# Configure Gemini API
 genai.configure(api_key=os.getenv("GEMINI_API_KEY"))
 
-# Initialize Flask app
 app = Flask(__name__)
 UPLOAD_FOLDER = "static/uploads"
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 
-# Tesseract path (adjust as needed)
 pytesseract.pytesseract.tesseract_cmd = r'C:\Program Files\Tesseract-OCR\tesseract.exe'
 
 # Classification priority
@@ -114,7 +111,6 @@ def upload():
             except Exception as e:
                 print("PDF conversion failed:", e)
             finally:
-                # Delay removal to avoid WinError 32 (optional: use threading to delay)
                 try:
                     os.remove(pdf_path)
                 except Exception as e:
@@ -154,7 +150,7 @@ def upload():
 def generate_pdf():
     data = request.json
     ordered = data["ordered"]
-    rotations = data.get("rotations", {})  # Optional rotation angles
+    rotations = data.get("rotations", {})  
 
     pdf = FPDF()
 
@@ -165,7 +161,7 @@ def generate_pdf():
         # Apply rotation if needed
         angle = int(rotations.get(fname, 0))
         if angle:
-            img = img.rotate(-angle, expand=True)  # Counter-clockwise
+            img = img.rotate(-angle, expand=True)  
 
         # Save rotated version temporarily
         temp_path = os.path.join(UPLOAD_FOLDER, f"temp_{fname}")
